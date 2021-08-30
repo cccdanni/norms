@@ -1,0 +1,187 @@
+%% ReadME
+% Plot ERP Brainwaves
+% Project: Social Norms Learning
+% Dependency: EEGlab (2019 version), ERPlab, and ANT .cnt Data Loading Plugin
+% Author: Danni Chen 
+% Update Date: 8/30/2021
+
+%% basic setting
+
+% Subject info
+clear all; clc;
+subNameD = [1205:1242,1244:1253];
+badsubNameD   = [1201:1204, 1220, 1229, 1238, 1239, 1249]; % 1201 - 1204: Local, 1229, 1238, 1239,1249 (reject epochs > 100)
+subNameD = subNameD(~ismember(subNameD, badsubNameD));
+
+% folder info
+workFolder = '/home/chendanni/Documents/Norms/analysis/';
+task = {'preLearningImplicit', 'postLearningImplicit'};
+ERPParentFolder = fullfile(workFolder,'EEGAnalysisResults', 'ERP'); % set your output path
+PreprocessParentFolder = fullfile(workFolder,'EEGAnalysisResults', 'Preprocessing');
+ScriptsFolder = '/home/chendanni/Documents/Norms/analysis/MyScripts/ERP';
+FieldTripFolder = '/home/chendanni/MATLAB/toolbox/fieldtrip-20210330';
+addpath ( genpath(ScriptsFolder) );
+addpath ( genpath(FieldTripFolder) );
+
+% load EEGlab
+% [ALLEEG EEG CURRENTSET ALLCOM] = eeglab;
+
+% ROI info
+ROI = struct;
+ROIs = {'FC','Ce','CP','LP','RP', 'LOT','ROT','OT'}; 
+for i = 1:8 ROI(i).ROIName = ROIs{i}; end
+ROI(1).ChanList = {'Fz', 'FCz', 'F1', 'F2', 'FC1', 'FC2'}; %FC
+ROI(2).ChanList = {'Cz', 'C1', 'C2'}; %Ce
+ROI(3).ChanList = {'CP1', 'CP2', 'Pz', 'P1', 'P2'}; %CP
+ROI(4).ChanList = {'P3', 'P5', 'CP3', 'CP5'}; %LP
+ROI(5).ChanList = {'P4', 'P6', 'CP4', 'CP6'}; %RP
+ROI(6).ChanList = {'T7','TP7','P7','PO7'}; %LOT
+ROI(7).ChanList = {'T8','TP8','P8','PO8'}; %ROT
+ROI(8).ChanList = {'T7','TP7','P7','PO7','T8','TP8','P8','PO8'}; %OT
+
+% ch62 = (ch11 + ch12 + ch13 + ch20 + ch21 + ch22)/6 label FC              
+% ch63 = (ch29 + ch30 + ch31)/3 label Ce                                   
+% ch64 = (ch38 + ch39 + ch46 + ch47 + ch48)/5 label CP                     
+% ch65 = (ch36 + ch37 + ch44 + ch45)/4 label LP                            
+% ch66 = (ch40 + ch41 + ch49 + ch50)/4 label RP                            
+% ch67 = (ch26 + ch35 + ch43 + ch52)/4 label LOT                           
+% ch68 = (ch34 + ch42 + ch51 + ch58)/4 label ROT                           
+% ch69 = (ch26 + ch35 + ch43 + ch52 + ch34 + ch42 + ch51 + ch58)/8 label OT
+
+
+% component of interest info
+bltw = [-0.20 0];
+complist = {'n170','lpc','n400','frn'};
+twlist = [0.12 0.22;...
+          0.30 0.80;...
+          0.30 0.50;...
+          0.25 0.45];
+roilist = {{'LOT','ROT','OT'},...
+           {'CP','FC','LP','RP'},...
+           {'Ce','CP'},...
+           {'FC'}};
+
+% other setting
+fs = 250;
+fslen = 0.20;
+tklen = 0.996;
+admtw = 0.05;
+
+% type 
+typelist = {'Mean', 'AdaptiveMean', 'Peak'};
+
+cl=colormap(parula(50));
+mycmap = [255 187 0; 124 187 0; 0 161 241]/255;
+
+%% Plot ERP
+cnt = 1
+
+for iTask = 1:length(task)
+    
+    curTask = task{iTask};
+    
+    ERPName = strcat (curTask, '_GrandAvg_ManuRej.erp'); 
+    ERPFolder = [ERPParentFolder '/' curTask 'ERPlabGrandAvg'];
+    cd (ERPFolder);
+    ERP = pop_loaderp('filename', ERPName, 'filepath', ERPFolder);
+    allChan = char({ERP(:).chanlocs.labels});
+    
+    
+    %% ingroup: higher, lower v.s. consistent 
+    in_higher_data = ERP.bindata(:,:,find(strcmp(ERP.bindescr,'Ingroup_Higher')));
+    in_lower_data = ERP.bindata(:,:,find(strcmp(ERP.bindescr,'Ingroup_Lower ')));
+    in_consistent_data = ERP.bindata(:,:,find(strcmp(ERP.bindescr,'Ingroup_Consistent')));
+    in_higher_sem = ERP.binerror(:,:,find(strcmp(ERP.bindescr,'Ingroup_Higher')));
+    in_lower_sem = ERP.binerror(:,:,find(strcmp(ERP.bindescr,'Ingroup_Lower ')));
+    in_consistent_sem = ERP.binerror(:,:,find(strcmp(ERP.bindescr,'Ingroup_Consistent')));
+    
+    for iROI = 1:length(ROI)
+        
+        thisROIName = char(ROIs(iROI));
+        thisChanName = char(ROI(iROI).ChanList);
+        if length(thisROIName) < 3 
+            thisROIName = pad(thisROIName, 3);
+        end
+        
+        thisROWs         = find(ismember(allChan, thisROIName, 'rows'));
+        tl_in_higher     = squeeze(in_higher_data(thisROWs, :));
+        tl_in_lower      = squeeze(in_lower_data(thisROWs, :));
+        tl_in_consistent = squeeze(in_consistent_data(thisROWs, :));
+        sem_in_higher     = squeeze(in_higher_sem(thisROWs, :));
+        sem_in_lower      = squeeze(in_lower_sem(thisROWs, :));
+        sem_in_consistent = squeeze(in_consistent_sem(thisROWs, :));
+        
+        xtime = squeeze(ERP.times);
+        figure();
+        boundedline (xtime, tl_in_higher, sem_in_higher,...
+            xtime, tl_in_lower, sem_in_lower,...
+            xtime, tl_in_consistent, sem_in_consistent,...
+            'cmap',mycmap,'alpha','transparency',0.35);
+        legend('higher','lower','consistent')
+
+
+        % Add all our previous improvements:
+        xlabel('Time (ms)');
+        ylabel('Amplitude');
+        title(strcat(curTask, '-', thisROIName, '-ingroup'));
+        ax = gca();
+        ax.XAxisLocation = 'origin';
+        ax.YAxisLocation = 'origin';
+        ax.TickDir = 'out';
+        box off;
+        
+        saveas(figure(cnt),strcat(curTask, thisROIName, 'IGERP', date()),'pdf');
+        cnt = cnt + 1;
+        close all;
+        
+    end
+    
+    %% outgroup: higher, lower v.s. consistent
+    out_higher_data = ERP.bindata(:,:,find(strcmp(ERP.bindescr,'Outgroup_Higher ')));
+    out_lower_data = ERP.bindata(:,:,find(strcmp(ERP.bindescr,'Outgroup_Lower')));
+    out_consistent_data = ERP.bindata(:,:,find(strcmp(ERP.bindescr,'Outgroup_Consistent ')));
+    out_higher_sem = ERP.binerror(:,:,find(strcmp(ERP.bindescr,'Outgroup_Higher ')));
+    out_lower_sem = ERP.binerror(:,:,find(strcmp(ERP.bindescr,'Outgroup_Lower')));
+    out_consistent_sem = ERP.binerror(:,:,find(strcmp(ERP.bindescr,'Outgroup_Consistent ')));
+    
+    for iROI = 1:length(ROI)
+        
+        thisROIName = char(ROIs(iROI));
+        thisChanName = char(ROI(iROI).ChanList);
+        if length(thisROIName) < 3 
+            thisROIName = pad(thisROIName, 3);
+        end
+        
+        thisROWs         = find(ismember(allChan, thisROIName, 'rows'));
+        tl_out_higher     = squeeze(out_higher_data(thisROWs, :));
+        tl_out_lower      = squeeze(out_lower_data(thisROWs, :));
+        tl_out_consistent = squeeze(out_consistent_data(thisROWs, :));
+        sem_out_higher     = squeeze(out_higher_sem(thisROWs, :));
+        sem_out_lower      = squeeze(out_lower_sem(thisROWs, :));
+        sem_out_consistent = squeeze(out_consistent_sem(thisROWs, :));
+        
+        xtime = squeeze(ERP.times);
+        figure();
+        boundedline (xtime, tl_out_higher, sem_out_higher,...
+            xtime, tl_out_lower, sem_out_lower,...
+            xtime, tl_out_consistent, sem_out_consistent,...
+            'cmap',mycmap,'alpha','transparency',0.35);
+        legend('higher','lower','consistent')
+
+
+        % Add all our previous improvements:
+        xlabel('Time (ms)');
+        ylabel('Amplitude');
+        title(strcat(curTask, '-', thisROIName, '-outgroup'));
+        ax = gca();
+        ax.XAxisLocation = 'origin';
+        ax.YAxisLocation = 'origin';
+        ax.TickDir = 'out';
+        box off;
+        
+        saveas(figure(cnt),strcat(curTask, thisROIName, 'OGERP', date()),'pdf');
+        cnt = cnt + 1;
+        close all;
+    end
+        
+end

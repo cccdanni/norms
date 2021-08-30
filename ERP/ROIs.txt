@@ -1,0 +1,8 @@
+ch62 = (ch11 + ch12 + ch13 + ch20 + ch21 + ch22)/6 label FC              
+ch63 = (ch29 + ch30 + ch31)/3 label Ce                                   
+ch64 = (ch38 + ch39 + ch46 + ch47 + ch48)/5 label CP                     
+ch65 = (ch36 + ch37 + ch44 + ch45)/4 label LP                            
+ch66 = (ch40 + ch41 + ch49 + ch50)/4 label RP                            
+ch67 = (ch26 + ch35 + ch43 + ch52)/4 label LOT                           
+ch68 = (ch34 + ch42 + ch51 + ch58)/4 label ROT                           
+ch69 = (ch26 + ch35 + ch43 + ch52 + ch34 + ch42 + ch51 + ch58)/8 label OT
