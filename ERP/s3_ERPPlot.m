@@ -22,6 +22,8 @@ ScriptsFolder = '/home/chendanni/Documents/Norms/analysis/MyScripts/ERP';
 FieldTripFolder = '/home/chendanni/MATLAB/toolbox/fieldtrip-20210330';
 addpath ( genpath(ScriptsFolder) );
 addpath ( genpath(FieldTripFolder) );
+addpath ( genpath("/home/chendanni/Documents/Norms/analysis/MyScripts/additional_functions/boundedline-pkg-master") );
+
 
 % load EEGlab
 % [ALLEEG EEG CURRENTSET ALLCOM] = eeglab;
@@ -130,7 +132,7 @@ for iTask = 1:length(task)
         ax.TickDir = 'out';
         box off;
         
-        saveas(figure(cnt),strcat(curTask, thisROIName, 'IGERP', date()),'pdf');
+        saveas(gcf,strcat(curTask, thisROIName, 'IGERP', date()),'pdf');
         cnt = cnt + 1;
         close all;
         
@@ -179,7 +181,7 @@ for iTask = 1:length(task)
         ax.TickDir = 'out';
         box off;
         
-        saveas(figure(cnt),strcat(curTask, thisROIName, 'OGERP', date()),'pdf');
+        saveas(gcf,strcat(curTask, thisROIName, 'OGERP', date()),'pdf');
         cnt = cnt + 1;
         close all;
     end
