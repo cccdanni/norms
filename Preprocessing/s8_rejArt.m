@@ -1,39 +1,49 @@
-%% ReadME
-% Preprocessing EEG Data 
-% Project: Social Norms Learning
-% Dependency: EEGlab (2019 version), ERPlab, and ANT .cnt Data Loading Plugin
-% Author: Danni Chen 
-% Input: *_EpochRejICARej.set
-% Output: *_EpochArtDet; *_EpochArtRej
-% Update Date: July-15-2021
-% Last run date: July-15-2021
+%% pre-processing EEG data
+% s7: Manually check ICA components to remove eye- or muscle-movement
+% artifacts Project: Social Norms Learning Author: Danni Chen Update Date:
+% 2022-02-22 Input: *_EpochRejICARej.set Output: *_EpochArtDet;
+% *_EpochArtRej Parameter:
+%   1) subNameD: Vector, a list of subject number
+%   2) task_list
+%   3) workFolder
+%   4) inter_option: boolean, true or false, if you want to interpolate bad
+%   channel in the current function
+%   5) threshold: 75 or 100, depend on the data quality
+% Note:
+%   1) One has a suffix of "EpochArtDet" which marks out trials with
+%   artifacts but maintain all of them. The other has a suffix of
+%   "EpochArtRej" which remove/reject the trials with artifacts. 2) An
+%   excel file called "RejectTrialNumber" will be saved under
+%   outputParentFolder. You are advised to check this sheet to see how many
+%   trials are rejected for each subject. If the number is too large, load
+%   the "...EpochArtDet.set" file to manually check the trials marked with
+%   artifacts and reject manually. Then save your manual-rejected version
+%   as "...EpochArtRej.set" for later analysis.
 
 
-%% Step 7: Detect artefacts in Epoch in ERPlab
-% This step generates two .set files for each subject. One has a suffix of
-% "EpochArtDet" which marks out trials with artifacts but maintain all of
-% them. The other has a suffix of "EpochArtRej" which remove/reject the
-% trials with artifacts. 
-% An excel file called "RejectTrialNumber" will be saved under
-% outputParentFolder. You are advised to check this sheet to see how many 
-% trials are rejected for each subject. If the number is too large, load 
-% the "...EpochArtDet.set" file to manually check the trials marked with 
-% artifacts and reject manually. Then save your manual-rejected version as 
-% "...EpochArtRej.set" for later analysis.
-% 
-% Authors: Yao Ziqing, Lin Xuanyi, Hu Xiaoqing
-% Create Date: 2018.07
-% Update Date: 2020.07
+function s8_rejArt(subNameD, task_list, workFolder, inter_option, threshold, sr, lp, hp, win_size, win_step)
 
-clear; clc;
+if nargin == 0
 
-% subNameD = [1205:1220];
-subNameD = [1205:1242,1244:1253]; 
-workFolder = '/home/chendanni/Documents/Norms/analysis/';
-cd(workFolder)
-rawFolder = fullfile(workFolder, 'EEGRawData'); 
-%task = {'preLearningImplicit', 'Learning', 'postLearningMemory', 'postLearningImplicit'};
-task = {'preLearningImplicit', 'postLearningImplicit'};
+    % participant info set up
+    subNameD = [1201:1242, 1244:1253];
+    
+    % directory set up
+    workFolder = '/Users/danni/Desktop/Norms/'; % in MAC
+
+    % task set up
+    task_list = {'preLearningImplicit','postLearningImplicit','Learning'};
+    
+    % parameter set-up
+    inter_option = true;
+    threshold = 100;
+    sr = 250;
+    lp = 30;
+    hp = 0.05;
+    win_size = 200;
+    win_step = 100;
+    
+end
 
 % change outputParentFolder before ERP OR ERSP
 outputParentFolder = fullfile(workFolder,'EEGAnalysisResults', 'Preprocessing'); % set your output path
@@ -41,34 +51,37 @@ outputParentFolder = fullfile(workFolder,'EEGAnalysisResults', 'Preprocessing');
 %load EEGlab
 [ALLEEG EEG CURRENTSET ALLCOM] = eeglab;
 
-for iTask = 1:length(task)
-    curTask = task{iTask};
+for iTask = 1:length(task_list)
+    
+    curTask = task_list{iTask};
+    
     
     for iSubject = 1:length(subNameD)
 
         %number to string
         subName = num2str(subNameD(iSubject));
-        
+        savName = strcat(subName, '_', curTask, '_', subName, num2str(sr), 'Hz', num2str(lp), 'LP',  erase(num2str(hp),'0.'), 'HP', 'Notch');
+
         %locate sub folder
         outputSubjectFolder = fullfile(outputParentFolder,subName);
         cd(outputSubjectFolder);
         
         % load existing preprocessed dataset
-        EEG = pop_loadset('filename',[subName '_' curTask '_EpochRejICARej.set'],'filepath',outputSubjectFolder);
+        EEG = pop_loadset('filename',[subName '_' curTask '_EpochRejICARej.set'],'filepath',pwd);
         [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 1 );
         
         % load file saved in s1 before removing bad channels
-        EEG = pop_loadset('filename',[ subName '_' curTask '_250Hz05HP30LPNotch.set'],...
-            'filepath',[outputSubjectFolder]);
+        EEG = pop_loadset('filename',[ savName '.set'], 'filepath', pwd);
         [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 2 );
         
-        % interpolate channels on dataset 1, based on dataset 2(dataset from step 1),
-        [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'retrieve',1,'study',0);
-        EEG = eeg_checkset( EEG );
-        EEG = pop_interp(EEG, ALLEEG(2).chanlocs, 'spherical');
-        
+        if inter_option
+            % interpolate channels on dataset 1, based on dataset 2(dataset from step 1),
+            [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'retrieve',1,'study',0);
+            EEG = eeg_checkset( EEG );
+            EEG = pop_interp(EEG, ALLEEG(2).chanlocs, 'spherical');
+        end
         [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 3,'setname',...
-            [subName '_' curTask '_EpochRejICARej_inter.set'],'overwrite','on','gui','off');
+            [subName '_' curTask '_EpochRejICARejInter.set'],'overwrite','on','gui','off');
         
         % Artefact Detection - Moving window peak to peak. Set your Twindow as
         % your epoch length
@@ -80,18 +93,15 @@ for iTask = 1:length(task)
                 lwindow = [-300 2996];
             case 'postLearningImplicit'
                 lwindow = [-200 996];
-            case 'postLearningMemory'
-                lwindow = [-200 996];
         end
         
 
-        EEG = pop_artmwppth( EEG , 'Channel',  1:61, 'Flag',  1, 'Threshold',  100, 'Twindow', lwindow,...
-        'Windowsize',  200, 'Windowstep',100 ); % GUI: 15-Jul-2021 23:25:26
-        
+        EEG = pop_artmwppth( EEG , 'Channel',  1:61, 'Flag',  1, 'Threshold',  threshold, 'Twindow', lwindow,...
+            'Windowsize',  win_size, 'Windowstep',win_step ); % GUI: 15-Jul-2021 23:25:26
+
         [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 4,'gui','off');
         
-        EEG = pop_saveset( EEG, 'filename', [ subName '_' curTask '_EpochArtDet'],...
-            'filepath', [outputSubjectFolder '/']);
+        EEG = pop_saveset( EEG, 'filename', [ subName '_' curTask '_EpochArtDet'],'filepath', pwd);
         
         RejNum(iSubject,1) = subNameD(iSubject);
         RejNum(iSubject,2) = size(find(EEG.reject.rejmanual==1),2);
@@ -101,18 +111,19 @@ for iTask = 1:length(task)
         EEG = eeg_rejsuperpose( EEG, 1, 1, 1, 1, 1, 1, 1, 1);
         EEG = pop_rejepoch( EEG, find(EEG.reject.rejmanual==1),0);
         
-        [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 5,'savenew',...
-            [outputSubjectFolder filesep subName '_' curTask '_EpochArtRej'],'gui','off');
+        [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 5, 'gui', 'off');
+        EEG = pop_saveset( EEG, 'filename', [ subName '_' curTask '_EpochArtRej'],'filepath', pwd);
+        
+        ALLEEG = []; EEG = []; CURRENTSET = [];
    
     end
     
     cd(outputParentFolder);
-    xlswrite([curTask 'RejectTrialNumber75' date], RejNum);
+    xlswrite([curTask '_RejectTrialNumber_thr' num2str(threshold) 'uV' date], RejNum);
     
     disp(['Completed: ' curTask]);
     
-    ALLEEG = []; EEG = []; CURRENTSET = [];
 
 end
 
-%% DONE!
+end

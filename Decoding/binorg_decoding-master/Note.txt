@@ -1,0 +1,49 @@
+Bin_organized_data: preprocessed data -- .mat
+ContinuousBEData: --.set
+
+Bin-Organized EEG Epochs:
+ * Bin 1: Chans X Time Points X Trials
+ * Bin N: Chans X Time Points X Trials
+
+The Big Picture:
+(Repeat Independently for Each Subject)
+ * Raw Data 
+ - Preprocess EEG and extract single-trial EEG epochs
+ X Decoding_binORG.m
+ * Bin-organized EEG Epochs
+ - Multivariate Pattern Analysis (Decoding, Inverted Encoding, etc.)
+ X SVM_ECOC_ERP_Decoding_2020.m
+ * Single-Subject MVPA Output Values
+ X SVM_ECOC_Stat_Plot_Permutation_2020.m :Decoding accuracy 
+ X SVM_ECOC_ERP_PermutationTesting_2020.m
+ * Descriptive and Inferential Statistics
+
+Q&A: 
+(1) Parameters and preprocessing pipeline: depend on your own research question
+(2) Reason why they Choose specific parameters: 
+ - low pass filter: 6 Hz, they do lose a lot of temporal infomation, but they want to separte alpha-band oscillation
+ - smooth: lose some temporal infomation, but gain statistical power
+ - not exclude error: depend on research question
+ - down-sample: not need ms resolution
+ - artifact: they did not throw out trials because of good quality, but should throw out;
+    unequal: because of more trials, may have more power; BUT may cause lots of problems -- because of vairations; BUT may solve the problem -- permutation problem
+(3) Preprocessing pipeline:
+ - Shift event codes
+   recommend: polynomial trending
+ - Downsample 
+ - re-reference/ reference for ICA
+ - 0.1 Hz high filter: pretty good to reduce trial-by-trial variation due to low-frequency noise, without lossing too much temporal infomation
+   careful about high-pass 
+ - Cut out C.R.A.P: often between trials block
+ - AR on Continuous Dta
+ - Channel Interpolation
+ - Add channel locations
+ - ICA
+ - Pre-binned Data 
+ - Creat EventList 
+ - Binlister-1: event code 
+ - Epoch (baseline correction)
+ - Artifact Detection: eye-blinks/eye-movements
+* reduce trial-by-trial variation is important for decoding
+(4) Correction: A-prior is good, increase power; 
+- Recommend FDR first, then if you understand better, could use permutation test

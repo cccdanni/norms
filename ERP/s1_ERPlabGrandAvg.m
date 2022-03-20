@@ -1,22 +1,20 @@
 %% ReadME
-% ERPlab Grand Average
+% ERPlab Grand Average & Remove baseline
 % Project: Social Norms Learning
 % Dependency: EEGlab (2019 version), ERPlab, and ANT .cnt Data Loading Plugin
 % Author: Danni Chen 
-% Update Date: Aug 29, 2021 
+% Update Date: 2022-02-27
 
 
 clear all; clc;
-subNameD = [1205:1242,1244:1253];
-%subNameD = 1205:1206;
-badsubNameD   = [1201:1204, 1220, 1229, 1238, 1239, 1249]; % 1201 - 1204: Local, 1229, 1238, 1239,1249 (reject epochs > 100)
-subNameD = subNameD(~ismember(subNameD, badsubNameD));
+subNameD = [1201:1242,1244:1253];
+badsubNameD   = [1201:1204, 1214, 1215, 1238]; % 1201 - 1204: HK Local; 1214, 1215 & 1238 - visually detected bad subjects
+subNameD = setdiff(subNameD, badsubNameD);
 
 workFolder = '/home/chendanni/Documents/Norms/analysis/';
 cd(workFolder)
 rawFolder = fullfile(workFolder, 'EEGRawData'); 
-%task = {'preLearningImplicit', 'Learning', 'postLearningImplicit'};
-task = {'preLearningImplicit', 'postLearningImplicit'}
+task = {'preLearningImplicit', 'postLearningImplicit', 'Learning'}
 
 % change outputParentFolder before ERP OR ERSP
 outputParentFolder = fullfile(workFolder,'EEGAnalysisResults', 'ERP'); % set your output path
@@ -54,18 +52,44 @@ for iTask = 1:length(task)
         end
         
         % load existing preprocessed dataset
-        EEG = pop_loadset('filename',[subName '_' curTask '_EpochArtRej_FalseRespRej.set'],'filepath',fullfile(inputParentFolder, subName));
+       
+        if strcmp (curTask, 'Learning')
+            EEG = pop_loadset('filename',[subName '_' curTask '_EpochArtRej.set'],'filepath',fullfile(inputParentFolder, subName));
+        else
+            EEG = pop_loadset('filename',[subName '_' curTask '_EpochArtRej_FalseRespRej.set'],'filepath',fullfile(inputParentFolder, subName));
+        end
         [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
         
-        %Average
+        % remove baseline
+        switch curTask
+            case 'preLearningImplicit'
+                bl = [-200 0];
+            case 'postLearningImplicit'
+                bl = [-200 0];
+            case 'Learning'
+                bl = [-300 0];
+        end
+        EEG = pop_rmbase( EEG, bl ,[]);   
+        [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 0,'savenew',...
+            [outputSubjectFolder filesep subName '_' curTask '_rmbl'],'gui','off');
+        
+        ALLEEG = []; EEG = []; CURRENTSET = [];
+        
+        EEG = pop_loadset('filename',[subName '_' curTask '_rmbl.set'],'filepath',outputSubjectFolder);
+        [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
+        
+        % grand average
         ERP = pop_averager( ALLEEG , 'Criterion', 'good', 'ExcludeBoundary', 'on', 'SEM', 'on' );
         ERP = pop_erpchanoperator( ERP, '/home/chendanni/Documents/Norms/analysis/MyScripts/ERP/ROIs.txt',...
                                 'ErrorMsg', 'popup', 'KeepLocations',  0, 'Warning', 'off' );
+                   
+                            
+        % save ERP
         ERP = pop_savemyerp(ERP, 'erpname',...
             [subName '_' curTask '_ERP_Avg'], 'filename', [subName '_' curTask '_ERPAvg.erp'], 'filepath', outputSubjectFolder, 'Warning','off');
         fprintf(fid,[outputSubjectFolder '/' subName '_' curTask '_ERPAvg.erp\n']);
         
-        ALLEEG = [];
+        ALLEEG = []; EEG = []; CURRENTSET = [];
     
     end
     
@@ -80,4 +104,3 @@ for iTask = 1:length(task)
 
 end
 
-%% Done.
